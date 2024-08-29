@@ -91,8 +91,8 @@ func (m *mySQLTestContainer) RunMySQLTestContainer(t testing.TB) DatastoreTestCo
 		},
 		Image: mySQLImage,
 		Cmd: []string{
-			"--general-log-file=/var/lib/mysql/log.log",
-			"--general-log=1",
+			"--log-error=/var/lib/mysql/error.log",
+			"--log-error-verbosity=3",
 		},
 	}
 
@@ -109,7 +109,7 @@ func (m *mySQLTestContainer) RunMySQLTestContainer(t testing.TB) DatastoreTestCo
 
 	t.Cleanup(func() {
 		execID, err := dockerClient.ContainerExecCreate(context.Background(), cont.ID, container.ExecOptions{
-			Cmd:          []string{"cat", "/var/lib/mysql/log.log"},
+			Cmd:          []string{"cat", "/var/lib/mysql/error.log"},
 			AttachStdout: true,
 			AttachStderr: true,
 		})
