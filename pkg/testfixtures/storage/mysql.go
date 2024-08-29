@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -103,10 +104,19 @@ func (m *mySQLTestContainer) RunMySQLTestContainer(t testing.TB) DatastoreTestCo
 	require.NoError(t, err, "failed to create mysql docker container")
 
 	t.Cleanup(func() {
+		reader, err := dockerClient.ContainerLogs(context.Background(),
+			name, container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: false, Until: time.Now().Format(time.RFC3339)})
+		if err != nil {
+			log.Fatal(err)
+		}
+		_, err = io.Copy(os.Stdout, reader)
+		if err != nil && err != io.EOF {
+			log.Fatal(err)
+		}
 		t.Logf("stopping container %s", name)
 		timeoutSec := 5
 
-		err := dockerClient.ContainerStop(context.Background(), cont.ID, container.StopOptions{Timeout: &timeoutSec})
+		err = dockerClient.ContainerStop(context.Background(), cont.ID, container.StopOptions{Timeout: &timeoutSec})
 		if err != nil && !client.IsErrNotFound(err) {
 			t.Logf("failed to stop mysql container: %v", err)
 		}

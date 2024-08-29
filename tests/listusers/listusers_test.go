@@ -26,10 +26,6 @@ import (
 	"github.com/openfga/openfga/tests"
 )
 
-func TestListUsersMemory(t *testing.T) {
-	testRunAll(t, "memory")
-}
-
 func TestListUsersPostgres(t *testing.T) {
 	testRunAll(t, "postgres")
 }

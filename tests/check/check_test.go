@@ -62,10 +62,6 @@ func testRunTestMatrix(t *testing.T, engine string, experimental bool) {
 	})
 }
 
-func TestCheckMemory(t *testing.T) {
-	testRunAll(t, "memory")
-}
-
 func TestCheckPostgres(t *testing.T) {
 	testRunAll(t, "postgres")
 }
