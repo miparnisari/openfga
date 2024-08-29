@@ -91,9 +91,8 @@ func (m *mySQLTestContainer) RunMySQLTestContainer(t testing.TB) DatastoreTestCo
 		},
 		Image: mySQLImage,
 		Cmd: []string{
-			"--log-error=/var/lib/mysql/error.log", // Log errors to a file
-			// Alternatively, use "--log-error-verbosity=3" for more verbosity
-			// "--log-error-verbosity=3", // Verbose error logging
+			"--log-error=/var/lib/mysql/error.log",
+			"--log-error-verbosity=3",
 		},
 	}
 
