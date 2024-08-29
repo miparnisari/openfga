@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/oklog/ulid/v2"
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
 	"github.com/pressly/goose/v3"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -386,7 +388,7 @@ func (t *SQLTupleIterator) Stop() {
 
 // HandleSQLError processes an SQL error and converts it into a more
 // specific error type based on the nature of the SQL error.
-func HandleSQLError(err error, args ...interface{}) error {
+func HandleSQLError(err error, logger logger.Logger, args ...interface{}) error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return storage.ErrNotFound
 	} else if errors.Is(err, storage.ErrIteratorDone) {
@@ -405,6 +407,9 @@ func HandleSQLError(err error, args ...interface{}) error {
 			}
 		}
 		return storage.ErrCollision
+	}
+	if logger != nil {
+		logger.Error("sql", zap.Error(err), zap.Any("stack", string(debug.Stack())))
 	}
 
 	return fmt.Errorf("sql error: %w", err)
@@ -437,7 +442,7 @@ func Write(
 ) error {
 	txn, err := dbInfo.db.BeginTx(ctx, nil)
 	if err != nil {
-		return HandleSQLError(err)
+		return HandleSQLError(err, nil)
 	}
 	defer func() {
 		_ = txn.Rollback()
@@ -468,12 +473,12 @@ func Write(
 			RunWith(txn). // Part of a txn.
 			ExecContext(ctx)
 		if err != nil {
-			return HandleSQLError(err, tk)
+			return HandleSQLError(err, nil, tk)
 		}
 
 		rowsAffected, err := res.RowsAffected()
 		if err != nil {
-			return HandleSQLError(err)
+			return HandleSQLError(err, nil)
 		}
 
 		if rowsAffected != 1 {
@@ -524,7 +529,7 @@ func Write(
 			RunWith(txn). // Part of a txn.
 			ExecContext(ctx)
 		if err != nil {
-			return HandleSQLError(err, tk)
+			return HandleSQLError(err, nil, tk)
 		}
 
 		changelogBuilder = changelogBuilder.Values(
@@ -544,12 +549,12 @@ func Write(
 	if len(writes) > 0 || len(deletes) > 0 {
 		_, err := changelogBuilder.RunWith(txn).ExecContext(ctx) // Part of a txn.
 		if err != nil {
-			return HandleSQLError(err)
+			return HandleSQLError(err, nil)
 		}
 	}
 
 	if err := txn.Commit(); err != nil {
-		return HandleSQLError(err)
+		return HandleSQLError(err, nil)
 	}
 
 	return nil
@@ -580,7 +585,7 @@ func WriteAuthorizationModel(
 		Values(store, model.GetId(), schemaVersion, "", nil, pbdata).
 		ExecContext(ctx)
 	if err != nil {
-		return HandleSQLError(err)
+		return HandleSQLError(err, nil)
 	}
 
 	return nil
@@ -596,7 +601,7 @@ func constructAuthorizationModelFromSQLRows(rows *sql.Rows) (*openfgav1.Authoriz
 		var marshalledModel []byte
 		err := rows.Scan(&modelID, &schemaVersion, &typeName, &marshalledTypeDef, &marshalledModel)
 		if err != nil {
-			return nil, HandleSQLError(err)
+			return nil, HandleSQLError(err, nil)
 		}
 
 		if len(marshalledModel) > 0 {
@@ -618,7 +623,7 @@ func constructAuthorizationModelFromSQLRows(rows *sql.Rows) (*openfgav1.Authoriz
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, HandleSQLError(err)
+		return nil, HandleSQLError(err, nil)
 	}
 
 	if len(typeDefs) == 0 {
@@ -646,7 +651,7 @@ func FindLatestAuthorizationModel(
 		Limit(1).
 		QueryContext(ctx)
 	if err != nil {
-		return nil, HandleSQLError(err)
+		return nil, HandleSQLError(err, nil)
 	}
 	defer rows.Close()
 	return constructAuthorizationModelFromSQLRows(rows)
@@ -667,7 +672,7 @@ func ReadAuthorizationModel(
 		}).
 		QueryContext(ctx)
 	if err != nil {
-		return nil, HandleSQLError(err)
+		return nil, HandleSQLError(err, nil)
 	}
 	defer rows.Close()
 	return constructAuthorizationModelFromSQLRows(rows)

@@ -208,7 +208,7 @@ func (p *Postgres) read(ctx context.Context, store string, tupleKey *openfgav1.T
 
 	rows, err := sb.QueryContext(ctx)
 	if err != nil {
-		return nil, sqlcommon.HandleSQLError(err)
+		return nil, sqlcommon.HandleSQLError(err, p.logger)
 	}
 
 	return sqlcommon.NewSQLTupleIterator(rows), nil
@@ -263,7 +263,7 @@ func (p *Postgres) ReadUserTuple(ctx context.Context, store string, tupleKey *op
 			&conditionContext,
 		)
 	if err != nil {
-		return nil, sqlcommon.HandleSQLError(err)
+		return nil, sqlcommon.HandleSQLError(err, p.logger)
 	}
 
 	if conditionName.String != "" {
@@ -319,7 +319,7 @@ func (p *Postgres) ReadUsersetTuples(ctx context.Context, store string, filter s
 	}
 	rows, err := sb.QueryContext(ctx)
 	if err != nil {
-		return nil, sqlcommon.HandleSQLError(err)
+		return nil, sqlcommon.HandleSQLError(err, p.logger)
 	}
 
 	return sqlcommon.NewSQLTupleIterator(rows), nil
@@ -358,7 +358,7 @@ func (p *Postgres) ReadStartingWithUser(ctx context.Context, store string, opts 
 
 	rows, err := builder.QueryContext(ctx)
 	if err != nil {
-		return nil, sqlcommon.HandleSQLError(err)
+		return nil, sqlcommon.HandleSQLError(err, p.logger)
 	}
 
 	return sqlcommon.NewSQLTupleIterator(rows), nil
@@ -402,7 +402,7 @@ func (p *Postgres) ReadAuthorizationModels(ctx context.Context, store string, op
 
 	rows, err := sb.QueryContext(ctx)
 	if err != nil {
-		return nil, nil, sqlcommon.HandleSQLError(err)
+		return nil, nil, sqlcommon.HandleSQLError(err, p.logger)
 	}
 	defer rows.Close()
 
@@ -412,14 +412,14 @@ func (p *Postgres) ReadAuthorizationModels(ctx context.Context, store string, op
 	for rows.Next() {
 		err = rows.Scan(&modelID)
 		if err != nil {
-			return nil, nil, sqlcommon.HandleSQLError(err)
+			return nil, nil, sqlcommon.HandleSQLError(err, p.logger)
 		}
 
 		modelIDs = append(modelIDs, modelID)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, nil, sqlcommon.HandleSQLError(err)
+		return nil, nil, sqlcommon.HandleSQLError(err, p.logger)
 	}
 
 	var token []byte
@@ -489,7 +489,7 @@ func (p *Postgres) CreateStore(ctx context.Context, store *openfgav1.Store) (*op
 		QueryRowContext(ctx).
 		Scan(&id, &name, &createdAt)
 	if err != nil {
-		return nil, sqlcommon.HandleSQLError(err)
+		return nil, sqlcommon.HandleSQLError(err, p.logger)
 	}
 
 	return &openfgav1.Store{
@@ -521,7 +521,7 @@ func (p *Postgres) GetStore(ctx context.Context, id string) (*openfgav1.Store, e
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, storage.ErrNotFound
 		}
-		return nil, sqlcommon.HandleSQLError(err)
+		return nil, sqlcommon.HandleSQLError(err, p.logger)
 	}
 
 	return &openfgav1.Store{
@@ -556,7 +556,7 @@ func (p *Postgres) ListStores(ctx context.Context, options storage.ListStoresOpt
 
 	rows, err := sb.QueryContext(ctx)
 	if err != nil {
-		return nil, nil, sqlcommon.HandleSQLError(err)
+		return nil, nil, sqlcommon.HandleSQLError(err, p.logger)
 	}
 	defer rows.Close()
 
@@ -567,7 +567,7 @@ func (p *Postgres) ListStores(ctx context.Context, options storage.ListStoresOpt
 		var createdAt, updatedAt time.Time
 		err := rows.Scan(&id, &name, &createdAt, &updatedAt)
 		if err != nil {
-			return nil, nil, sqlcommon.HandleSQLError(err)
+			return nil, nil, sqlcommon.HandleSQLError(err, p.logger)
 		}
 
 		stores = append(stores, &openfgav1.Store{
@@ -579,7 +579,7 @@ func (p *Postgres) ListStores(ctx context.Context, options storage.ListStoresOpt
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, nil, sqlcommon.HandleSQLError(err)
+		return nil, nil, sqlcommon.HandleSQLError(err, p.logger)
 	}
 
 	if len(stores) > options.Pagination.PageSize {
@@ -604,7 +604,7 @@ func (p *Postgres) DeleteStore(ctx context.Context, id string) error {
 		Where(sq.Eq{"id": id}).
 		ExecContext(ctx)
 	if err != nil {
-		return sqlcommon.HandleSQLError(err)
+		return sqlcommon.HandleSQLError(err, p.logger)
 	}
 
 	return nil
@@ -627,7 +627,7 @@ func (p *Postgres) WriteAssertions(ctx context.Context, store, modelID string, a
 		Suffix("ON CONFLICT (store, authorization_model_id) DO UPDATE SET assertions = ?", marshalledAssertions).
 		ExecContext(ctx)
 	if err != nil {
-		return sqlcommon.HandleSQLError(err)
+		return sqlcommon.HandleSQLError(err, p.logger)
 	}
 
 	return nil
@@ -652,7 +652,7 @@ func (p *Postgres) ReadAssertions(ctx context.Context, store, modelID string) ([
 		if errors.Is(err, sql.ErrNoRows) {
 			return []*openfgav1.Assertion{}, nil
 		}
-		return nil, sqlcommon.HandleSQLError(err)
+		return nil, sqlcommon.HandleSQLError(err, p.logger)
 	}
 
 	var assertions openfgav1.Assertions
@@ -699,7 +699,7 @@ func (p *Postgres) ReadChanges(ctx context.Context, store, objectTypeFilter stri
 
 	rows, err := sb.QueryContext(ctx)
 	if err != nil {
-		return nil, nil, sqlcommon.HandleSQLError(err)
+		return nil, nil, sqlcommon.HandleSQLError(err, p.logger)
 	}
 	defer rows.Close()
 
@@ -724,7 +724,7 @@ func (p *Postgres) ReadChanges(ctx context.Context, store, objectTypeFilter stri
 			&insertedAt,
 		)
 		if err != nil {
-			return nil, nil, sqlcommon.HandleSQLError(err)
+			return nil, nil, sqlcommon.HandleSQLError(err, p.logger)
 		}
 
 		var conditionContextStruct structpb.Struct

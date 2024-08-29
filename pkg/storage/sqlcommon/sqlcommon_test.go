@@ -14,7 +14,7 @@ import (
 
 func TestHandleSQLError(t *testing.T) {
 	t.Run("duplicate_key_value_error_with_tuple_key_wraps_ErrInvalidWriteInput", func(t *testing.T) {
-		err := HandleSQLError(errors.New("duplicate key value"), &openfgav1.TupleKey{
+		err := HandleSQLError(errors.New("duplicate key value"), nil, &openfgav1.TupleKey{
 			Object:   "object",
 			Relation: "relation",
 			User:     "user",
@@ -27,7 +27,7 @@ func TestHandleSQLError(t *testing.T) {
 			Number:  1062,
 			Message: "Duplicate entry '' for key ''",
 		}
-		err := HandleSQLError(duplicateKeyError, &openfgav1.TupleKey{
+		err := HandleSQLError(duplicateKeyError, nil, &openfgav1.TupleKey{
 			Object:   "object",
 			Relation: "relation",
 			User:     "user",
@@ -40,19 +40,19 @@ func TestHandleSQLError(t *testing.T) {
 			Number:  1062,
 			Message: "Duplicate entry '' for key ''",
 		}
-		err := HandleSQLError(duplicateKeyError)
+		err := HandleSQLError(duplicateKeyError, nil)
 
 		require.ErrorIs(t, err, storage.ErrCollision)
 	})
 
 	t.Run("duplicate_key_value_error_without_tuple_key_returns_collision", func(t *testing.T) {
 		duplicateKeyError := errors.New("duplicate key value")
-		err := HandleSQLError(duplicateKeyError)
+		err := HandleSQLError(duplicateKeyError, nil)
 		require.ErrorIs(t, err, storage.ErrCollision)
 	})
 
 	t.Run("sql.ErrNoRows_is_converted_to_storage.ErrNotFound_error", func(t *testing.T) {
-		err := HandleSQLError(sql.ErrNoRows)
+		err := HandleSQLError(sql.ErrNoRows, nil)
 		require.ErrorIs(t, err, storage.ErrNotFound)
 	})
 }
