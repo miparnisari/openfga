@@ -90,6 +90,11 @@ func (m *mySQLTestContainer) RunMySQLTestContainer(t testing.TB) DatastoreTestCo
 			nat.Port("3306/tcp"): {},
 		},
 		Image: mySQLImage,
+		Cmd: []string{
+			"--log-error=/var/lib/mysql/error.log", // Log errors to a file
+			// Alternatively, use "--log-error-verbosity=3" for more verbosity
+			// "--log-error-verbosity=3", // Verbose error logging
+		},
 	}
 
 	hostCfg := container.HostConfig{
@@ -104,14 +109,24 @@ func (m *mySQLTestContainer) RunMySQLTestContainer(t testing.TB) DatastoreTestCo
 	require.NoError(t, err, "failed to create mysql docker container")
 
 	t.Cleanup(func() {
-		reader, err := dockerClient.ContainerLogs(context.Background(),
-			name, container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: false, Until: time.Now().Format(time.RFC3339)})
+		execID, err := dockerClient.ContainerExecCreate(context.Background(), cont.ID, container.ExecOptions{
+			Cmd:          []string{"cat", "/var/lib/mysql/error.log"},
+			AttachStdout: true,
+			AttachStderr: true,
+		})
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("Failed to create exec instance:", err)
 		}
-		_, err = io.Copy(os.Stdout, reader)
-		if err != nil && err != io.EOF {
-			log.Fatal(err)
+		response, err := dockerClient.ContainerExecAttach(context.Background(), execID.ID, container.ExecAttachOptions{})
+		if err != nil {
+			log.Fatal("Failed to attach to exec instance:", err)
+		}
+		defer response.Close()
+
+		// Print the error logs
+		_, err = io.Copy(os.Stdout, response.Reader)
+		if err != nil {
+			log.Fatal("Failed to print error logs:", err)
 		}
 		t.Logf("stopping container %s", name)
 		timeoutSec := 5
