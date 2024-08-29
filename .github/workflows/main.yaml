@@ -1,4 +1,4 @@
-name: Main
+name: Tests
 on:
   push:
     branches:
@@ -8,9 +8,9 @@ permissions:
   contents: read
 
 jobs:
-  go-bench:
+  codecov:
     runs-on: ubuntu-latest
-    timeout-minutes: 30 # until we do https://github.com/openfga/openfga/issues/1172
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v3.5.2
 
@@ -18,36 +18,6 @@ jobs:
         with:
           go-version-file: './go.mod'
           cache-dependency-path: './go.sum'
-          check-latest: true
 
-      # Run benchmark with `go test -bench` and stores the output to a file
-      - name: Run benchmark
-        run: |
-          set -o pipefail
-          make test-bench | tee bench_output.txt
-
-      - name: Get benchmark as JSON
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29 # v1.20.3
-        with:
-          # What benchmark tool the output.txt came from
-          tool: 'go'
-          # Where the output from the benchmark tool is stored
-          output-file-path: bench_output.txt
-          # Write benchmarks to this file
-          external-data-json-path: ./cache/benchmark-data.json
-          # Workflow will fail when an alert happens
-          fail-on-alert: true
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          comment-on-alert: true
-
-      - name: Get CPU information
-        uses: kenchan0130/actions-system-info@c74331947b5734764feeb375de4038960f2576bd # v1
-        id: system-info
-
-      - name: Save benchmark JSON to cache
-        uses: actions/cache/save@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
-        with:
-          path: ./cache/benchmark-data.json
-          # Save with commit hash to avoid "cache already exists"
-          # Save with OS & CPU info to prevent comparing against results from different CPUs
-          key: ${{ github.sha }}-${{ runner.os }}-${{ steps.system-info.outputs.cpu-model }}-go-benchmark
+      - name: Tests
+        run: make test
