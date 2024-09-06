@@ -445,7 +445,10 @@ func Write(
 		return HandleSQLError(err, nil)
 	}
 	defer func() {
-		_ = txn.Rollback()
+		err = txn.Rollback()
+		if err != nil {
+			panic(fmt.Sprintf("failed to rollback transaction: %v", err))
+		}
 	}()
 
 	changelogBuilder := dbInfo.stbl.

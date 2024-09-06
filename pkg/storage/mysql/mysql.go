@@ -479,7 +479,10 @@ func (m *MySQL) CreateStore(ctx context.Context, store *openfgav1.Store) (*openf
 		return nil, sqlcommon.HandleSQLError(err, m.logger)
 	}
 	defer func() {
-		_ = txn.Rollback()
+		err = txn.Rollback()
+		if err != nil {
+			panic(fmt.Sprintf("failed to rollback transaction: %v", err))
+		}
 	}()
 
 	_, err = m.stbl.
