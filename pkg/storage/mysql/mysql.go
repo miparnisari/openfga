@@ -478,13 +478,6 @@ func (m *MySQL) CreateStore(ctx context.Context, store *openfgav1.Store) (*openf
 	if err != nil {
 		return nil, sqlcommon.HandleSQLError(err, m.logger)
 	}
-	defer func() {
-		err = txn.Rollback()
-		if err != nil {
-			panic(fmt.Sprintf("failed to rollback transaction: %v", err))
-		}
-	}()
-
 	_, err = m.stbl.
 		Insert("store").
 		Columns("id", "name", "created_at", "updated_at").
@@ -492,6 +485,9 @@ func (m *MySQL) CreateStore(ctx context.Context, store *openfgav1.Store) (*openf
 		RunWith(txn).
 		ExecContext(ctx)
 	if err != nil {
+		if rollbackErr := txn.Rollback(); rollbackErr != nil {
+			return nil, fmt.Errorf("failed to rollback transaction: %v", err)
+		}
 		return nil, sqlcommon.HandleSQLError(err, m.logger)
 	}
 
@@ -505,6 +501,9 @@ func (m *MySQL) CreateStore(ctx context.Context, store *openfgav1.Store) (*openf
 		QueryRowContext(ctx).
 		Scan(&id, &name, &createdAt)
 	if err != nil {
+		if rollbackErr := txn.Rollback(); rollbackErr != nil {
+			return nil, fmt.Errorf("failed to rollback transaction: %v", err)
+		}
 		return nil, sqlcommon.HandleSQLError(err, m.logger)
 	}
 

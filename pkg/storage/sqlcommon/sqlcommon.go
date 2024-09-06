@@ -444,12 +444,6 @@ func Write(
 	if err != nil {
 		return HandleSQLError(err, nil)
 	}
-	defer func() {
-		err = txn.Rollback()
-		if err != nil {
-			panic(fmt.Sprintf("failed to rollback transaction: %v", err))
-		}
-	}()
 
 	changelogBuilder := dbInfo.stbl.
 		Insert("changelog").
@@ -476,15 +470,24 @@ func Write(
 			RunWith(txn). // Part of a txn.
 			ExecContext(ctx)
 		if err != nil {
+			if rollbackErr := txn.Rollback(); rollbackErr != nil {
+				return fmt.Errorf("failed to rollback transaction: %v", err)
+			}
 			return HandleSQLError(err, nil, tk)
 		}
 
 		rowsAffected, err := res.RowsAffected()
 		if err != nil {
+			if rollbackErr := txn.Rollback(); rollbackErr != nil {
+				return fmt.Errorf("failed to rollback transaction: %v", err)
+			}
 			return HandleSQLError(err, nil)
 		}
 
 		if rowsAffected != 1 {
+			if rollbackErr := txn.Rollback(); rollbackErr != nil {
+				return fmt.Errorf("failed to rollback transaction: %v", err)
+			}
 			return storage.InvalidWriteInputError(
 				tk,
 				openfgav1.TupleOperation_TUPLE_OPERATION_DELETE,
@@ -532,6 +535,9 @@ func Write(
 			RunWith(txn). // Part of a txn.
 			ExecContext(ctx)
 		if err != nil {
+			if rollbackErr := txn.Rollback(); rollbackErr != nil {
+				return fmt.Errorf("failed to rollback transaction: %v", err)
+			}
 			return HandleSQLError(err, nil, tk)
 		}
 
@@ -552,6 +558,9 @@ func Write(
 	if len(writes) > 0 || len(deletes) > 0 {
 		_, err := changelogBuilder.RunWith(txn).ExecContext(ctx) // Part of a txn.
 		if err != nil {
+			if rollbackErr := txn.Rollback(); rollbackErr != nil {
+				return fmt.Errorf("failed to rollback transaction: %v", err)
+			}
 			return HandleSQLError(err, nil)
 		}
 	}
