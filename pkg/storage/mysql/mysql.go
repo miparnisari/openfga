@@ -12,6 +12,7 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/go-sql-driver/mysql"
+	"github.com/oklog/ulid/v2"
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -474,49 +475,24 @@ func (m *MySQL) CreateStore(ctx context.Context, store *openfgav1.Store) (*openf
 	ctx, span := tracer.Start(ctx, "mysql.CreateStore")
 	defer span.End()
 
-	txn, err := m.db.BeginTx(ctx, &sql.TxOptions{})
-	if err != nil {
-		return nil, sqlcommon.HandleSQLError(err, m.logger)
-	}
-	_, err = m.stbl.
+	now := ulid.Make()
+	nowTimeUtc := ulid.Time(now.Time()).UTC()
+
+	_, err := m.stbl.
 		Insert("store").
 		Columns("id", "name", "created_at", "updated_at").
-		Values(store.GetId(), store.GetName(), sq.Expr("NOW()"), sq.Expr("NOW()")).
-		RunWith(txn).
+		Values(store.GetId(), store.GetName(), nowTimeUtc, nowTimeUtc).
 		ExecContext(ctx)
 	if err != nil {
-		if rollbackErr := txn.Rollback(); rollbackErr != nil {
-			return nil, fmt.Errorf("failed to rollback transaction: %v", err)
-		}
 		return nil, sqlcommon.HandleSQLError(err, m.logger)
 	}
-
-	var createdAt time.Time
-	var id, name string
-	err = m.stbl.
-		Select("id", "name", "created_at").
-		From("store").
-		Where(sq.Eq{"id": store.GetId()}).
-		RunWith(txn).
-		QueryRowContext(ctx).
-		Scan(&id, &name, &createdAt)
-	if err != nil {
-		if rollbackErr := txn.Rollback(); rollbackErr != nil {
-			return nil, fmt.Errorf("failed to rollback transaction: %v", err)
-		}
-		return nil, sqlcommon.HandleSQLError(err, m.logger)
-	}
-
-	err = txn.Commit()
-	if err != nil {
-		return nil, sqlcommon.HandleSQLError(err, m.logger)
-	}
+	time.Now()
 
 	return &openfgav1.Store{
-		Id:        id,
-		Name:      name,
-		CreatedAt: timestamppb.New(createdAt),
-		UpdatedAt: timestamppb.New(createdAt),
+		Id:        store.GetId(),
+		Name:      store.GetName(),
+		CreatedAt: timestamppb.New(nowTimeUtc),
+		UpdatedAt: timestamppb.New(nowTimeUtc),
 	}, nil
 }
 
